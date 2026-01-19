@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HGCX MQTT Web控制台 多Topic發行版_v7</title>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<style>
+    :root {
+        --primary-color: #3498db;
+        --secondary-color: #2ecc71;
+        --danger-color: #e74c3c;
+        --bg-color: #f4f7f6;
+        --card-bg: #ffffff;
+        --text-color: #2c3e50;
+        --border-radius: 8px;
+    }
+
+    body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 20px;
+        line-height: 1.6;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    h2, h3 {
+        color: #34495e;
+        margin-bottom: 20px;
+        border-left: 5px solid var(--primary-color);
+        padding-left: 15px;
+    }
+
+    .card {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+
+    /* 摺疊相關樣式 */
+    .collapsible-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+        margin-bottom: 15px;
+    }
+
+    .collapsible-header h2 {
+        margin-bottom: 0;
+    }
+
+    .toggle-icon {
+        font-size: 1.2rem;
+        transition: transform 0.3s ease;
+        color: var(--primary-color);
+    }
+
+    .collapsed .toggle-icon {
+        transform: rotate(-90deg);
+    }
+
+    .collapsible-content {
+        max-height: 2000px;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out, opacity 0.3s ease;
+        opacity: 1;
+    }
+
+    .collapsed .collapsible-content {
+        max-height: 0;
+        opacity: 0;
+        margin-top: 0;
+    }
+
+    /* 始終可見的控制區 */
+    .always-visible {
+        margin-top: 10px;
+    }
+
+    .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 15px;
+    }
+
+    @media (max-width: 768px) {
+        .grid-2, .grid-3 {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    label { 
+        font-weight: 600; 
+        display: block; 
+        margin-top: 12px; 
+        font-size: 0.9rem;
+    }
+
+    .input-with-unit {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .input-with-unit input {
+        padding-right: 40px;
+    }
+
+    .unit {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(20%);
+        color: #7f8c8d;
+        font-size: 0.8rem;
+        pointer-events: none;
+    }
+
+    input, select, button { 
+        width: 100%; 
+        padding: 10px; 
+        margin-top: 6px; 
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 1rem;
+    }
+
+    input[type="checkbox"] {
+        width: auto;
+        margin-top: 0;
+        cursor: pointer;
+    }
+
+    .switch-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .switch-container label {
+        margin-top: 0;
+        cursor: pointer;
+    }
+
+    input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    button { 
+        cursor: pointer; 
+        font-weight: bold;
+        transition: all 0.3s ease;
+        border: none;
+    }
+
+    .btn-connect { background-color: var(--primary-color); color: white; }
+    .btn-connect:hover { background-color: #2980b9; }
+    
+    .btn-disconnect { background-color: #95a5a6; color: white; }
+    .btn-disconnect:hover { background-color: #7f8c8d; }
+
+    .btn-sub { background-color: var(--secondary-color); color: white; }
+    .btn-sub:hover { background-color: #27ae60; }
+
+    .btn-unsub { background-color: #e67e22; color: white; }
+    .btn-unsub:hover { background-color: #d35400; }
+
+    .btn-pub { background-color: var(--primary-color); color: white; }
+    .btn-pub:hover { background-color: #2980b9; }
+
+    .btn-clear { 
+        background-color: #f1f2f6; 
+        color: #7f8c8d; 
+        font-size: 0.8rem; 
+        padding: 4px 10px; 
+        width: auto; 
+        margin-top: 0;
+        border: 1px solid #ddd;
+    }
+    .btn-clear:hover { background-color: #dfe4ea; color: #2c3e50; }
+
+    .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+        margin-bottom: 5px;
+    }
+
+    .log-header label {
+        margin-top: 0;
+    }
+
+    pre {
+        background: #2c3e50;
+        color: #ecf0f1;
+        padding: 12px;
+        height: 150px;
+        overflow-y: auto;
+        border-radius: 4px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 0.85rem;
+        margin-top: 0;
+    }
+
+    .status-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-radius: 4px;
+        margin-bottom: 15px;
+        font-weight: bold;
+    }
+
+    .ok { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .err { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+    .led {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+    .off { background: #bdc3c7; }
+    .on {
+        background: #2ecc71;
+        box-shadow: 0 0 8px #2ecc71;
+        animation: breathe 1.5s infinite;
+    }
+    @keyframes breathe {
+        0% { opacity: .5; }
+        50% { opacity: 1; }
+        100% { opacity: .5; }
+    }
+
+    .advanced-title {
+        margin-top: 20px;
+        font-size: 1rem;
+        color: #7f8c8d;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 5px;
+    }
+
+    /* 水平並排容器 */
+    .topic-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    @media (max-width: 992px) {
+        .topic-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+	<h1>HGCX GROUP MQTT 多Topic連線測試</h1>
+	<h2>功能說明</h2>
+	   <p><B>&emsp;1.MQTT連線設定內設定 MQTT Broker 連線相關資料.<br>
+                    &emsp;2.確認與 Broker 連線後在訂閱輸入 Topic 後按下訂閱.<br>
+	            &emsp;3.在發佈輸入 Topic 後按下發佈即會進行發佈訊息.</B><br>
+                         </p>
+</div>
+
+
+
+<div class="container">
+    <!-- 連線設定區塊 (可摺疊) -->
+    <div id="connectionCard" class="card">
+        <div class="collapsible-header" onclick="toggleConnectionPanel()">
+                           		
+            <h2>MQTT 連線設定</h2>
+            <span class="toggle-icon">▼</span>
+        </div>
+        
+        <!-- 始終可見的狀態與按鈕 -->
+        <div class="always-visible">
+            <div id="status" class="status-bar info">狀態：尚未連線</div>
+            <div class="btn-group">
+                <button class="btn-connect" onclick="connectMQTT()">🔌 連線</button>
+                <button class="btn-disconnect" onclick="disconnectMQTT()">❌ 取消連線</button>
+            </div>
+        </div>
+
+        <!-- 可摺疊的輸入欄位 -->
+        <div class="collapsible-content">
+            <div class="grid-2">
+                <div>
+                    <label>Broker Host / IP</label>                    
+                    <input id="host" placeholder="輸入Broker IP/網址">
+                    
+                    <label>WebSocket Port</label>
+                    <input id="port" value="8083">
+
+                    <label>QoS 設定 (0-2)</label>
+                    <input id="qos" type="number" min="0" max="2" value="0">
+                </div>
+                <div>
+                    <label>Client ID（連線後自動回填）</label>
+                    <input id="clientId" placeholder="留空將自動產生">
+                    
+                    <label>Username</label>
+                    <input id="username" placeholder="輸入username">
+ 
+                    
+                    <label>Password</label>
+                    <input id="password" type="password">
+                </div>
+            </div>
+
+            <div class="advanced-title">進階設定</div>
+            <div class="grid-3">
+                <div>
+                    <label>Connect Timeout</label>
+                    <div class="input-with-unit">
+                        <input id="connectTimeout" type="number" value="10">
+                        <span class="unit">(s)</span>
+                    </div>
+                </div>
+                <div>
+                    <label>Keep Alive</label>
+                    <div class="input-with-unit">
+                        <input id="keepalive" type="number" value="60">
+                        <span class="unit">(s)</span>
+                    </div>
+                </div>
+                <div>
+                    <label>Reconnect Period</label>
+                    <div class="input-with-unit">
+                        <input id="reconnectPeriod" type="number" value="4000">
+                        <span class="unit">(ms)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div>
+                    <label>Topic 數量 (動態產生)</label>
+                    <input id="topicCount" type="number" value="2" min="1" max="10" onchange="generateDynamicBlocks()">
+                </div>
+                <div class="grid-2">
+                    <div class="switch-container">
+                        <input type="checkbox" id="autoReconnect" checked>
+                        <label for="autoReconnect">Auto Reconnect</label>
+                    </div>
+                    <div class="switch-container">
+                        <input type="checkbox" id="cleanStart" checked>
+                        <label for="cleanStart">Clean Start</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 動態產生 Topic 區塊的容器 -->
+    <div id="dynamicContainer"></div>
+</div>
+
+<script>
+let client = null;
+
+// 初始化動態區塊
+window.onload = () => {
+    generateDynamicBlocks();
+};
+
+function toggleConnectionPanel() {
+    const card = document.getElementById("connectionCard");
+    card.classList.toggle("collapsed");
+}
+
+function generateDynamicBlocks() {
+    const count = parseInt(document.getElementById("topicCount").value) || 1;
+    const container = document.getElementById("dynamicContainer");
+    
+    // 儲存現有的值
+    const currentSubTopics = [];
+    const currentPubTopics = [];
+    const currentPubMsgs = [];
+    for(let i=1; i<=10; i++) {
+        const sel = document.getElementById(`subTopic${i}`);
+        const tel = document.getElementById(`pubTopic${i}`);
+        const mel = document.getElementById(`pubMsg${i}`);
+        if(sel) currentSubTopics[i] = sel.value;
+        if(tel) currentPubTopics[i] = tel.value;
+        if(mel) currentPubMsgs[i] = mel.value;
+    }
+
+    let html = "";
+    for (let i = 1; i <= count; i++) {
+        const sval = currentSubTopics[i] || "";
+        const tval = currentPubTopics[i] || "";
+        const mval = currentPubMsgs[i] || "";
+        
+        html += `
+            <div class="topic-row">
+                <!-- 訂閱區塊 -->
+                <div class="card">
+                    <h3>訂閱 Topic ${i} <span id="led${i}" class="led off"></span></h3>
+                    <label>Subscribe Topic ${i}</label>
+                    <input id="subTopic${i}" placeholder="例如：test/topic${i}" value="${sval}">
+                    <div class="btn-group">
+                        <button class="btn-sub" onclick="subscribe(${i})">訂閱</button>
+                        <button class="btn-unsub" onclick="unsubscribe(${i})">取消</button>
+                    </div>
+                    <div class="log-header">
+                        <label>接收日誌</label>
+                        <button class="btn-clear" onclick="clearLog('logSub${i}')">🗑️ 清除</button>
+                    </div>
+                    <pre id="logSub${i}"></pre>
+                </div>
+
+                <!-- 發佈區塊 -->
+                <div class="card">
+                    <h3>發佈 Topic ${i}</h3>
+                    <label>Publish Topic ${i}</label>
+                    <input id="pubTopic${i}" placeholder="例如：test/topic${i}" value="${tval}">
+                    <label>Payload</label>
+                    <input id="pubMsg${i}" placeholder="輸入訊息內容" value="${mval}">
+                    <button class="btn-pub" onclick="publishMsg(${i})">發佈</button>
+                    <div class="log-header">
+                        <label>發佈日誌</label>
+                        <button class="btn-clear" onclick="clearLog('logPub${i}')">🗑️ 清除</button>
+                    </div>
+                    <pre id="logPub${i}"></pre>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+function connectMQTT() {
+    const host = hostEl().value.trim();
+    const port = portEl().value.trim();
+    const username = userEl().value.trim();
+    const password = passEl().value;
+    let clientIdInput = idEl().value.trim();
+
+    const connectTimeout = parseInt(document.getElementById("connectTimeout").value) * 1000;
+    const keepalive = parseInt(document.getElementById("keepalive").value);
+    const reconnectPeriod = parseInt(document.getElementById("reconnectPeriod").value);
+    const autoReconnect = document.getElementById("autoReconnect").checked;
+    const clean = document.getElementById("cleanStart").checked;
+
+    const currentClientId = clientIdInput || "html_" + Math.random().toString(16).substr(2, 8);
+    const url = `ws://${host}:${port}/mqtt`;
+
+    updateStatus("⏳ 連線中...", "info");
+
+    if (client) {
+        client.end(true);
+    }
+
+    const options = {
+        clientId: currentClientId,
+        username,
+        password,
+        clean: clean,
+        keepalive: keepalive,
+        connectTimeout: connectTimeout,
+        reconnectPeriod: autoReconnect ? reconnectPeriod : 0
+    };
+
+    client = mqtt.connect(url, options);
+
+    client.on("connect", () => {
+        updateStatus("✅ MQTT 連線成功", "ok");
+        idEl().value = currentClientId;
+        document.getElementById("connectionCard").classList.add("collapsed");
+    });
+
+    client.on("reconnect", () => {
+        updateStatus("🔄 嘗試重新連線中...", "info");
+    });
+
+    client.on("error", (err) => {
+        updateStatus("❌ 連線錯誤: " + err.message, "err");
+    });
+
+    client.on("close", () => {
+        updateStatus("🔌 已斷線", "info");
+        const count = parseInt(document.getElementById("topicCount").value) || 1;
+        for(let i=1; i<=count; i++) setLed(i, false);
+    });
+
+    client.on("message", (topic, payload) => {
+        const count = parseInt(document.getElementById("topicCount").value) || 1;
+        for(let i=1; i<=count; i++) {
+            const subEl = subTopic(i);
+            if (subEl && topic === subEl.value) {
+                log(`logSub${i}`, topic, payload);
+            }
+        }
+    });
+}
+
+function disconnectMQTT() {
+    if (client) {
+        client.end(true);
+        updateStatus("🔌 已手動中斷", "info");
+    }
+}
+
+function getQoS() {
+    let qos = parseInt(document.getElementById("qos").value);
+    if (isNaN(qos) || qos < 0) return 0;
+    if (qos > 2) return 2;
+    return qos;
+}
+
+function subscribe(i) {
+    const topic = subTopic(i).value;
+    if (!client || !client.connected) {
+        alert("請先連線 MQTT Broker");
+        return;
+    }
+    if (!topic) {
+        alert("請輸入 Topic");
+        return;
+    }
+    
+    const qos = getQoS();
+    client.subscribe(topic, { qos }, (err) => {
+        if (!err) {
+            setLed(i, true);
+            log(`logSub${i}`, "系統", `已訂閱 ${topic} (QoS: ${qos})`);
+        } else {
+            alert("訂閱失敗: " + err.message);
+        }
+    });
+}
+
+function unsubscribe(i) {
+    const topic = subTopic(i).value;
+    if (!client || !topic) return;
+    client.unsubscribe(topic, () => {
+        setLed(i, false);
+        log(`logSub${i}`, "系統", `已取消訂閱 ${topic}`);
+    });
+}
+
+function publishMsg(i) {
+    const topic = pubTopic(i).value;
+    const msg = pubMsg(i).value;
+    if (!client || !client.connected) {
+        alert("請先連線 MQTT Broker");
+        return;
+    }
+    if (!topic || !msg) {
+        alert("請輸入 Topic 與 Payload");
+        return;
+    }
+
+    const qos = getQoS();
+    client.publish(topic, msg, { qos });
+    log(`logPub${i}`, topic, msg + ` (QoS: ${qos})`);
+}
+
+function log(id, topic, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const now = new Date().toLocaleTimeString();
+    el.textContent += `[${now}] ${topic} → ${msg}\n`;
+    el.scrollTop = el.scrollHeight;
+}
+
+function clearLog(id) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "";
+}
+
+function setLed(i, on) {
+    const el = document.getElementById(`led${i}`);
+    if (el) el.className = "led " + (on ? "on" : "off");
+}
+
+function updateStatus(text, className) {
+    const el = statusEl();
+    el.textContent = "狀態：" + text;
+    el.className = "status-bar " + className;
+}
+
+const hostEl = () => document.getElementById("host");
+const portEl = () => document.getElementById("port");
+const userEl = () => document.getElementById("username");
+const passEl = () => document.getElementById("password");
+const idEl = () => document.getElementById("clientId");
+const statusEl = () => document.getElementById("status");
+const subTopic = i => document.getElementById(`subTopic${i}`);
+const pubTopic = i => document.getElementById(`pubTopic${i}`);
+const pubMsg = i => document.getElementById(`pubMsg${i}`);
+</script>
+
+</body>
+</html>
